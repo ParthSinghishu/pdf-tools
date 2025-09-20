@@ -1,154 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Image to PDF & PDF Editor</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; }
-    h1 { text-align: center; }
-    .section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
-    .preview img { max-width: 120px; margin: 5px; border: 1px solid #ddd; }
-    button { margin: 5px; padding: 8px 12px; cursor: pointer; }
-    select, input[type=number] { margin: 5px; padding: 4px; }
-    .pages { margin-top: 10px; }
-    .page-item { border: 1px solid #ddd; padding: 5px; margin: 3px 0; display: flex; justify-content: space-between; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image to PDF & PDF Editor</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 0; padding: 10px; max-width: 1000px; margin-left: auto; margin-right: auto; }
+h1 { text-align: center; margin-bottom: 20px; }
+.section { border: 1px solid #ccc; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+label { display: block; margin-top: 10px; }
+input, select, button { margin-top: 5px; padding: 8px; font-size: 16px; width: 100%; max-width: 100%; box-sizing: border-box; border-radius: 6px; border: 1px solid #ccc; }
+button { cursor: pointer; background-color: #007bff; color: white; border: none; }
+button:hover { background-color: #0056b3; }
+.pages { margin-top: 10px; }
+.page-item { border: 1px solid #ddd; padding: 8px; margin: 5px 0; display: flex; justify-content: space-between; align-items: center; border-radius: 6px; background-color: #f9f9f9; flex-wrap: wrap; }
+.page-item button { padding: 6px 8px; font-size: 14px; margin-left: 5px; flex: 1 0 auto; }
+@media (min-width: 600px) {
+  input, select, button { width: auto; }
+  .section { display: flex; flex-direction: row; flex-wrap: wrap; gap: 20px; }
+  .section > div { flex: 1 1 300px; }
+}
+#status { font-weight: bold; }
+</style>
+<style>
+  .preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+    justify-items: center;
+  }
+
+  .preview img {
+    max-width: 80px;
+    max-height: 80px;
+    object-fit: contain;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+  }
+</style>
 </head>
 <body>
-  <h1>Image → PDF & PDF Editor</h1>
 
-  <!-- Convert Images to PDF -->
-  <div class="section">
-    <h2>Convert Images to PDF</h2>
-    <input type="file" id="imageInput" accept="image/*" multiple>
-    <div class="preview" id="imagePreview"></div>
-    <label>Page Size:
-      <select id="pageSize">
-        <option value="A4">A4</option>
-        <option value="Letter">Letter</option>
-      </select>
-    </label>
-    <button onclick="createPdfFromImages()">Create PDF</button>
-  </div>
+<h1>Image → PDF & PDF Editor</h1>
 
-  <!-- Edit PDF -->
-  <div class="section">
-    <h2>Edit PDF (Reorder / Remove Pages)</h2>
-    <input type="file" id="pdfInput" accept="application/pdf">
-    <div class="pages" id="pageList"></div>
-    <button onclick="exportEditedPdf()">Export Edited PDF</button>
-  </div>
+<!-- File name input -->
+<label>File Name:
+  <input type="text" id="fileName" placeholder="Enter file name" value="document">
+</label>
 
-  <div>Status: <span id="status">Idle</span></div>
+<!-- Convert Images to PDF -->
+<div class="section">
+<div>
+<h2>Convert Images to PDF</h2>
+<input type="file" id="imageInput" accept="image/*" multiple>
+<label>Page Size:
+<select id="pageSize">
+<option value="A4">A4</option>
+<option value="Letter">Letter</option>
+</select>
+</label>
+<button onclick="createPdfFromImages()">Create PDF</button>
+<div class="preview" id="imagePreview"></div>
+</div>
+</div>
 
-  <!-- Libraries -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-  
-  <script>
-    const { PDFDocument } = PDFLib;
-    let images = [];
-    let pdfBytes = null;
-    let pageOrder = [];
+<!-- Edit PDF -->
+<div class="section">
+<div>
+<h2>Edit PDF (Reorder / Remove Pages)</h2>
+<input type="file" id="pdfInput" accept="application/pdf">
+<div class="pages" id="pageList"></div>
+<button onclick="exportEditedPdf()">Export Edited PDF</button>
+</div>
+</div>
 
-    const statusEl = document.getElementById("status");
+<div>Status: <span id="status">Idle</span></div>
 
-    // Handle images
-    document.getElementById("imageInput").addEventListener("change", async (e) => {
-      images = Array.from(e.target.files);
-      const preview = document.getElementById("imagePreview");
-      preview.innerHTML = "";
-      images.forEach(file => {
-        const img = document.createElement("img");
-        img.src = URL.createObjectURL(file);
-        preview.appendChild(img);
-      });
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<script>
+const { PDFDocument } = PDFLib;
+let images = [];
+let pdfBytes = null;
+let pageOrder = [];
+const statusEl = document.getElementById("status");
+
+// Handle images
+document.getElementById("imageInput").addEventListener("change", async (e) => {
+  images = Array.from(e.target.files);
+  const preview = document.getElementById("imagePreview");
+  preview.innerHTML = "";
+  images.forEach(file => {
+    const img = document.createElement("img");
+    img.src = URL.createObjectURL(file);
+    preview.appendChild(img);
+  });
+});
+
+async function createPdfFromImages() {
+  if (images.length === 0) return alert("No images selected");
+  const fileName = document.getElementById("fileName").value || "document";
+  statusEl.textContent = "Creating PDF...";
+  const pdfDoc = await PDFDocument.create();
+  const size = document.getElementById("pageSize").value === "Letter"
+    ? [612, 792] : [595, 842]; // Letter or A4
+
+  for (const file of images) {
+    const imgBytes = await file.arrayBuffer();
+    let embedded;
+    if (file.type.includes("png")) embedded = await pdfDoc.embedPng(imgBytes);
+    else embedded = await pdfDoc.embedJpg(imgBytes);
+    const page = pdfDoc.addPage(size);
+    const { width, height } = embedded.scale(1);
+    const scale = Math.min(size[0] / width, size[1] / height) * 0.9;
+    page.drawImage(embedded, {
+      x: (size[0] - width * scale) / 2,
+      y: (size[1] - height * scale) / 2,
+      width: width * scale,
+      height: height * scale
     });
+  }
+  const pdfBytesOut = await pdfDoc.save();
+  saveAs(new Blob([pdfBytesOut], { type: "application/pdf" }), `${fileName}.pdf`);
+  statusEl.textContent = "PDF created";
+}
 
-    async function createPdfFromImages() {
-      if (images.length === 0) return alert("No images selected");
-      statusEl.textContent = "Creating PDF...";
-      const pdfDoc = await PDFDocument.create();
-      const size = document.getElementById("pageSize").value === "Letter"
-        ? [612, 792] : [595, 842]; // Letter or A4
+// Handle PDF upload
+document.getElementById("pdfInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  pdfBytes = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pageCount = pdfDoc.getPageCount();
+  pageOrder = Array.from({ length: pageCount }, (_, i) => i);
+  renderPageList();
+  statusEl.textContent = `Loaded PDF with ${pageCount} pages`;
+});
 
-      for (const file of images) {
-        const imgBytes = await file.arrayBuffer();
-        let embedded;
-        if (file.type.includes("png")) embedded = await pdfDoc.embedPng(imgBytes);
-        else embedded = await pdfDoc.embedJpg(imgBytes);
-        const page = pdfDoc.addPage(size);
-        const { width, height } = embedded.scale(1);
-        const scale = Math.min(size[0] / width, size[1] / height) * 0.9;
-        page.drawImage(embedded, {
-          x: (size[0] - width * scale) / 2,
-          y: (size[1] - height * scale) / 2,
-          width: width * scale,
-          height: height * scale
-        });
-      }
-      const pdfBytesOut = await pdfDoc.save();
-      saveAs(new Blob([pdfBytesOut], { type: "application/pdf" }), "images.pdf");
-      statusEl.textContent = "PDF created";
-    }
+function renderPageList() {
+  const container = document.getElementById("pageList");
+  container.innerHTML = "";
+  pageOrder.forEach((pageIndex, i) => {
+    const div = document.createElement("div");
+    div.className = "page-item";
+    div.innerHTML = `
+      Page ${pageIndex + 1}
+      <span>
+        <button onclick="moveUp(${i})">↑</button>
+        <button onclick="moveDown(${i})">↓</button>
+        <button onclick="removePage(${i})">✕</button>
+      </span>
+    `;
+    container.appendChild(div);
+  });
+}
 
-    // Handle PDF upload
-    document.getElementById("pdfInput").addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      pdfBytes = await file.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(pdfBytes);
-      const pageCount = pdfDoc.getPageCount();
-      pageOrder = Array.from({ length: pageCount }, (_, i) => i);
+function moveUp(i) {
+  if (i === 0) return;
+  [pageOrder[i-1], pageOrder[i]] = [pageOrder[i], pageOrder[i-1]];
+  renderPageList();
+}
+function moveDown(i) {
+  if (i === pageOrder.length - 1) return;
+  [pageOrder[i+1], pageOrder[i]] = [pageOrder[i], pageOrder[i+1]];
+  renderPageList();
+}
+function removePage(i) {
+  pageOrder.splice(i, 1);
+  renderPageList();
+}
 
-      renderPageList();
-      statusEl.textContent = `Loaded PDF with ${pageCount} pages`;
-    });
-
-    function renderPageList() {
-      const container = document.getElementById("pageList");
-      container.innerHTML = "";
-      pageOrder.forEach((pageIndex, i) => {
-        const div = document.createElement("div");
-        div.className = "page-item";
-        div.innerHTML = `
-          Page ${pageIndex + 1}
-          <span>
-            <button onclick="moveUp(${i})">↑</button>
-            <button onclick="moveDown(${i})">↓</button>
-            <button onclick="removePage(${i})">✕</button>
-          </span>
-        `;
-        container.appendChild(div);
-      });
-    }
-
-    function moveUp(i) {
-      if (i === 0) return;
-      [pageOrder[i-1], pageOrder[i]] = [pageOrder[i], pageOrder[i-1]];
-      renderPageList();
-    }
-    function moveDown(i) {
-      if (i === pageOrder.length - 1) return;
-      [pageOrder[i+1], pageOrder[i]] = [pageOrder[i], pageOrder[i+1]];
-      renderPageList();
-    }
-    function removePage(i) {
-      pageOrder.splice(i, 1);
-      renderPageList();
-    }
-
-    async function exportEditedPdf() {
-      if (!pdfBytes) return alert("No PDF loaded");
-      statusEl.textContent = "Building edited PDF...";
-      const srcPdf = await PDFDocument.load(pdfBytes);
-      const outPdf = await PDFDocument.create();
-      const copied = await outPdf.copyPages(srcPdf, pageOrder);
-      copied.forEach(p => outPdf.addPage(p));
-      const outBytes = await outPdf.save();
-      saveAs(new Blob([outBytes], { type: "application/pdf" }), "edited.pdf");
-      statusEl.textContent = "Edited PDF exported";
-    }
-  </script>
+async function exportEditedPdf() {
+  if (!pdfBytes) return alert("No PDF loaded");
+  const fileName = document.getElementById("fileName").value || "document";
+  statusEl.textContent = "Building edited PDF...";
+  const srcPdf = await PDFDocument.load(pdfBytes);
+  const outPdf = await PDFDocument.create();
+  const copied = await outPdf.copyPages(srcPdf, pageOrder);
+  copied.forEach(p => outPdf.addPage(p));
+  const outBytes = await outPdf.save();
+  saveAs(new Blob([outBytes], { type: "application/pdf" }), `${fileName}.pdf`);
+  statusEl.textContent = "Edited PDF exported";
+}
+</script>
 </body>
 </html>
